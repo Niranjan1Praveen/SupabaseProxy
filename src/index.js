@@ -1,7 +1,7 @@
 // src/index.js
 export default {
   async fetch(request) {
-    // Handle CORS preflight requests (OPTIONS method)
+    // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         headers: {
@@ -19,38 +19,31 @@ export default {
       // Your Supabase project reference
       const supabaseProjectRef = 'hpumegppcvjhxgkavawh';
       
-      // Use REST API endpoint (port 443) instead of database port (5432)
-      const supabaseUrl = `https://${supabaseProjectRef}.supabase.co/rest/v1${url.pathname}${url.search}`;
+      // Remove the /public prefix if present (Supabase REST API doesn't need it)
+      let path = url.pathname;
       
-      console.log(`Proxying request to: ${supabaseUrl}`);
-      console.log(`Request method: ${request.method}`);
+      // If path starts with /public, remove it
+      if (path.startsWith('/public')) {
+        path = path.replace('/public', '');
+      }
+      
+      // Construct the Supabase REST API URL
+      // Note: No /public in the path
+      const supabaseUrl = `https://${supabaseProjectRef}.supabase.co/rest/v1${path}${url.search}`;
+      
+      console.log(`Proxying to: ${supabaseUrl}`);
 
       // Get headers from the original request
-      const apikey = request.headers.get('apikey');
-      const authorization = request.headers.get('authorization');
-      const contentType = request.headers.get('content-type');
-      const prefer = request.headers.get('prefer');
-      const accept = request.headers.get('accept');
-
-      // Prepare headers for Supabase
       const headers = {
-        'apikey': apikey || '',
-        'Content-Type': contentType || 'application/json',
+        'apikey': request.headers.get('apikey') || '',
+        'Authorization': request.headers.get('Authorization') || '',
+        'Content-Type': request.headers.get('content-type') || 'application/json',
       };
 
-      // Add Authorization header if present (for authenticated requests)
-      if (authorization) {
-        headers['Authorization'] = authorization;
-      }
-
-      // Add Prefer header if present (for returning representation, etc.)
+      // Add Prefer header if present
+      const prefer = request.headers.get('prefer');
       if (prefer) {
         headers['Prefer'] = prefer;
-      }
-
-      // Add Accept header if present
-      if (accept) {
-        headers['Accept'] = accept;
       }
 
       // Prepare request options
@@ -61,7 +54,6 @@ export default {
 
       // Add body for non-GET/HEAD requests
       if (!['GET', 'HEAD'].includes(request.method)) {
-        // For POST, PUT, PATCH requests, read the body
         const body = await request.text();
         if (body) {
           requestOptions.body = body;
@@ -71,11 +63,11 @@ export default {
       // Forward the request to Supabase
       const response = await fetch(supabaseUrl, requestOptions);
 
-      // Read the response body
+      // Read response body
       const responseBody = await response.text();
 
-      // Create a new response with CORS headers
-      const newResponse = new Response(responseBody, {
+      // Return response with CORS headers
+      return new Response(responseBody, {
         status: response.status,
         statusText: response.statusText,
         headers: {
@@ -86,27 +78,18 @@ export default {
         },
       });
 
-      console.log(`Response status: ${response.status}`);
-
-      return newResponse;
-
     } catch (error) {
       console.error('Worker error:', error);
       
-      // Return a detailed error response
       return new Response(JSON.stringify({
         success: false,
         error: 'Proxy error',
         message: error.message,
-        stack: error.stack,
-        solution: 'Check that your Supabase project reference is correct and the REST API is accessible'
       }), {
         status: 500,
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, X-Client-Info, Prefer, Accept',
         },
       });
     }
