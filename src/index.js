@@ -19,16 +19,10 @@ export default {
       // Your Supabase project reference
       const supabaseProjectRef = 'hpumegppcvjhxgkavawh';
       
-      // Remove the /public prefix if present (Supabase REST API doesn't need it)
-      let path = url.pathname;
+      // Get the full path (including capital C table name)
+      const path = url.pathname;
       
-      // If path starts with /public, remove it
-      if (path.startsWith('/public')) {
-        path = path.replace('/public', '');
-      }
-      
-      // Construct the Supabase REST API URL
-      // Note: No /public in the path
+      // Construct the Supabase REST API URL - preserve exact path
       const supabaseUrl = `https://${supabaseProjectRef}.supabase.co/rest/v1${path}${url.search}`;
       
       console.log(`Proxying to: ${supabaseUrl}`);
